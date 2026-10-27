@@ -4,5 +4,27 @@
     "logisticregression__penalty": "l2",
     "logisticregression__solver": "liblinear",
     "cv_mcc": 0.8512
+  },
+  "Decision Tree": {
+    "criterion": "entropy",
+    "max_depth": 12,
+    "min_samples_leaf": 1,
+    "min_samples_split": 2,
+    "cv_mcc": 0.832
+  },
+  "KNN": {
+    "kneighborsclassifier__n_neighbors": 9,
+    "kneighborsclassifier__p": 1,
+    "kneighborsclassifier__weights": "distance",
+    "cv_mcc": 0.8391
+  },
+  "Naive Bayes": {
+    "var_smoothing": 1e-06,
+    "cv_mcc": 0.7305
+  },
+  "SVM": {
+    "svc__C": 100,
+    "svc__gamma": 0.003,
+    "cv_mcc": 0.8712
   }
 }
