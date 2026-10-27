@@ -1,0 +1,8 @@
+{
+  "Logistic Regression": {
+    "logisticregression__C": 10,
+    "logisticregression__penalty": "l2",
+    "logisticregression__solver": "liblinear",
+    "cv_mcc": 0.8512
+  }
+}
