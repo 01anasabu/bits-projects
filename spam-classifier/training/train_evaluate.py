@@ -90,7 +90,7 @@ def main():
     # smaller held-out sample (subset of test) for quick demo uploads
     test.groupby(TARGET, group_keys=False).sample(
         frac=300 / len(test), random_state=SEED
-    ).to_csv(ROOT / "test_data01.csv", index=False)
+    ).to_csv(ROOT / "test_data_sample_300.csv", index=False)
 
     # stratified 5-fold CV, used only for tuning
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
