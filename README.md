@@ -4,9 +4,9 @@ This repository contains academic and research-oriented projects covering topics
 
 **Note: Detailed project-specific information, usage instructions, and explanations are available in the README files inside each project directory.**
 
-## Project List
+## Project List:
 
-### Spam Classifier
-[Open project - README](./spam-classifier/)
+### 1. Spam Classifier
+Click on: [Project Link](./spam-classifier/)
 
-Spam detection system using the UCI Spambase dataset across 5 Classification ML models.
+A spam detection system using the UCI Spambase dataset to classify emails as spam or non-spam using Machine Learning Classification Models.
