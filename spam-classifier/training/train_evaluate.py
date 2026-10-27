@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
 from ucimlrepo import fetch_ucirepo
 
 ROOT = Path(__file__).resolve().parent.parent  # project root (above training/)
@@ -28,6 +29,16 @@ MODELS = {
             "logisticregression__solver": ["liblinear"],
         },
     ),
+    # raw features: trees and Naive Bayes are scale-invariant
+    "Decision Tree": (
+        DecisionTreeClassifier(random_state=SEED),
+        {
+            "criterion": ["gini", "entropy"],
+            "max_depth": [6, 8, 10, 12, 15, None],
+            "min_samples_leaf": [1, 2, 3, 5],
+            "min_samples_split": [2, 5, 10],
+        },
+    )
 }
 
 
