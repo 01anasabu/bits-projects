@@ -1,8 +1,12 @@
 # bits-projects
 
-This repository contains academic projects and research-based implementations in machine learning and AI. It includes code, documentation, and model evaluation results for practical learning and experimentation.
+This repository contains academic and research-oriented projects covering topics in machine learning, data analysis, and artificial intelligence. The work includes implementations, experiments, and documentation for individual coursework projects.
 
-## Project 1: Spam Email Classifier
-[Spam Classifier Project README](./spam-classifier/README.md)
+**Note: Detailed project-specific information, usage instructions, and explanations are available in the README files inside each project directory.**
 
-This project builds a spam detection system using the UCI Spambase dataset. It preprocesses email features, trains multiple machine learning models, compares their performance, and deploys the best-performing model in a Streamlit app for spam classification.
+## Project List
+
+### Spam Classifier
+[Open project - README](./spam-classifier/)
+
+Spam detection system using the UCI Spambase dataset across 5 Classification ML models.
