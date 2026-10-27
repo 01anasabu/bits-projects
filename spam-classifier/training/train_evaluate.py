@@ -4,11 +4,15 @@ import json
 from pathlib import Path
 
 import joblib
+import numpy as np
 from metrics import evaluate
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from ucimlrepo import fetch_ucirepo
 
@@ -38,7 +42,28 @@ MODELS = {
             "min_samples_leaf": [1, 2, 3, 5],
             "min_samples_split": [2, 5, 10],
         },
-    )
+    ),
+    "KNN": (
+        make_pipeline(StandardScaler(), KNeighborsClassifier()),
+        {
+            "kneighborsclassifier__n_neighbors": [5, 9, 15, 21, 31, 41],
+            "kneighborsclassifier__weights": ["uniform", "distance"],
+            "kneighborsclassifier__p": [1, 2],
+        },
+    ),
+    "Naive Bayes": (
+        GaussianNB(),
+        {"var_smoothing": np.logspace(-9, 0, 10)},  # 1e-9 ... 1
+    ),
+    "SVM": (
+        make_pipeline(
+            StandardScaler(), SVC(kernel="rbf", probability=True, random_state=SEED)
+        ),
+        {
+            "svc__C": [1, 3, 10, 30, 100],
+            "svc__gamma": [0.0003, 0.001, 0.003, 0.01, 0.03],
+        },
+    ),
 }
 
 
