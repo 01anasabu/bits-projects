@@ -1,4 +1,4 @@
-"""Split Spambase, tune + train a Logistic Regression classifier (CV), evaluate on the held-out test set, save artifacts."""
+"""Split Spambase, tune + train 5 classifiers (CV), evaluate on the held-out test set, save artifacts."""
 
 import json
 from pathlib import Path
@@ -14,6 +14,21 @@ from ucimlrepo import fetch_ucirepo
 ROOT = Path(__file__).resolve().parent.parent  # project root (above training/)
 SEED = 2026  # fixed seed: same split, folds and models on every run
 TARGET = "spam"  # label column: 1 = spam, 0 = not spam
+
+# (estimator, param grid); pipeline step names come from make_pipeline
+MODELS = {
+    # scaled: these models are sensitive to feature ranges
+    "Logistic Regression": (
+        make_pipeline(
+            StandardScaler(), LogisticRegression(max_iter=5000, random_state=SEED)
+        ),
+        {
+            "logisticregression__C": [0.1, 1, 10, 30, 100, 300],
+            "logisticregression__penalty": ["l1", "l2"],
+            "logisticregression__solver": ["liblinear"],
+        },
+    ),
+}
 
 
 def main():
@@ -39,47 +54,28 @@ def main():
 
     # stratified 5-fold CV, used only for tuning
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
-
-    # Logistic Regression pipeline and hyperparameter grid
-    estimator = make_pipeline(
-        StandardScaler(), LogisticRegression(max_iter=5000, random_state=SEED)
-    )
-    grid = {
-        "logisticregression__C": [0.1, 1, 10, 30, 100, 300],
-        "logisticregression__penalty": ["l1", "l2"],
-        "logisticregression__solver": ["liblinear"],
-    }
-
-    # tune on the training split only (5-fold CV, MCC); test split stays untouched
-    search = GridSearchCV(
-        estimator, grid, scoring="matthews_corrcoef", cv=cv, n_jobs=-1
-    )
-    search.fit(X_tr, y_tr)
-    model = search.best_estimator_  # refit on the full training split
-
-    # save the tuned model for the app
-    joblib.dump(model, ROOT / "model" / "logistic_regression.joblib")
-
-    # best hyperparameters + their mean CV score
-    best_params = {
-        "Logistic Regression": {
+    results, best_params = {}, {}
+    for name, (estimator, grid) in MODELS.items():
+        # tune on the training split only (5-fold CV, MCC); test split stays untouched
+        search = GridSearchCV(
+            estimator, grid, scoring="matthews_corrcoef", cv=cv, n_jobs=-1
+        )
+        search.fit(X_tr, y_tr)
+        model = search.best_estimator_  # refit on the full training split
+        # save the tuned model for the app
+        joblib.dump(model, ROOT / "model" / f"{name.lower().replace(' ', '_')}.joblib")
+        # best hyperparameters + their mean CV score
+        best_params[name] = {
             **search.best_params_,
             "cv_mcc": round(search.best_score_, 4),
         }
-    }
-
-    # score on the untouched test split
-    results = {
-        "Logistic Regression": evaluate(
+        # score on the untouched test split
+        results[name] = evaluate(
             y_te, model.predict(X_te), model.predict_proba(X_te)[:, 1]
         )
-    }
-
-    print(
-        "Logistic Regression",
-        best_params["Logistic Regression"],
-        {k: round(v, 4) for k, v in results["Logistic Regression"].items()},
-    )
+        print(
+            name, best_params[name], {k: round(v, 4) for k, v in results[name].items()}
+        )
 
     # tuning results and test-set metrics, used for the README tables
     (ROOT / "model" / "best_params.json").write_text(json.dumps(best_params, indent=2))
