@@ -6,6 +6,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 from metrics import evaluate
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.naive_bayes import GaussianNB
@@ -29,7 +30,7 @@ MODELS = {
         ),
         {
             "logisticregression__C": [0.1, 1, 10, 30, 100, 300],
-            "logisticregression__penalty": ["l1", "l2"],
+            "logisticregression__l1_ratio": [0, 1],
             "logisticregression__solver": ["liblinear"],
         },
     ),
@@ -57,11 +58,14 @@ MODELS = {
     ),
     "SVM": (
         make_pipeline(
-            StandardScaler(), SVC(kernel="rbf", probability=True, random_state=SEED)
+            StandardScaler(),
+            CalibratedClassifierCV(
+                SVC(kernel="rbf", random_state=SEED), ensemble=False
+            ),
         ),
         {
-            "svc__C": [1, 3, 10, 30, 100],
-            "svc__gamma": [0.0003, 0.001, 0.003, 0.01, 0.03],
+            "calibratedclassifiercv__estimator__C": [1, 3, 10, 30, 100],
+            "calibratedclassifiercv__estimator__gamma": [0.0003, 0.001, 0.003, 0.01, 0.03],
         },
     ),
 }
