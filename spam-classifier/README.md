@@ -76,7 +76,7 @@ python training/train_evaluate.py       # retrain; overwrites model/ and the tes
 
 | ML Model Name | Best hyperparameters | CV MCC |
 |---|---|---|
-| Logistic Regression | `C=10`, `l1_ratio=0`, `solver=liblinear` | 0.8512 |
+| Logistic Regression | `C=10`, `l1_ratio=0` (L2 penalty), `solver=liblinear` | 0.8512 |
 | Decision Tree | `criterion=entropy`, `max_depth=12`, `min_samples_leaf=1`, `min_samples_split=2` | 0.8320 |
 | KNN | `n_neighbors=9`, `weights=distance`, `p=1` (Manhattan) | 0.8391 |
 | Naive Bayes | `var_smoothing=1e-6` | 0.7305 |
