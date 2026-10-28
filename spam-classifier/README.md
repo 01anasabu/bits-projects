@@ -94,3 +94,13 @@ python training/train_evaluate.py       # retrain; overwrites model/ and the tes
 | **Overall winner** | **SVM**: highest MCC (0.863) and AUC (0.975). |
 
 ---
+
+## 🖥️ Streamlit app
+
+| Area | What it does |
+|---|---|
+| **Sidebar** | Upload a test CSV, try the sample data in one click, or download the sample files |
+| **Model results** | Pick a model to see its six metrics, confusion matrix, ROC curve, precision-recall curve and classification report |
+| **Compare models** | Multi-select models and metrics for a metric table, bar chart, ROC overlay and observations |
+| **Predictions** | Per-row predictions with a misclassified-only filter and CSV download |
+| **No retraining** | The app loads the saved models from `model/`, calculates the evaluation metrics on the uploaded test CSV and displays the results |
