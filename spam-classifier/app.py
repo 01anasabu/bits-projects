@@ -561,3 +561,41 @@ with tab_cmp:
         ).set_index("Priority")
     )
     st.caption("A general guide for spam filtering, not specific to your data.")
+
+# ---------- tab 3: predictions ----------
+with tab_pred:
+    choice = model_picker("model_predictions")
+    pred, score = scores[choice]
+    # one row per email: actual, predicted, P(spam), correct?
+    out = (
+        df[[TARGET]]
+        .rename(columns={TARGET: "actual"})
+        .assign(predicted=pred, p_spam=score.round(4), correct=pred == y.values)
+    )
+    # false positive = genuine flagged as spam; false negative = spam missed
+    fp = ((pred == 1) & (y.values == 0)).sum()
+    fn = ((pred == 0) & (y.values == 1)).sum()
+    a, b, c = st.columns(3)
+    a.metric(
+        "Correct", f"{out.correct.sum():,}", help="Emails the model labelled correctly."
+    )
+    b.metric(
+        "False positives (genuine → spam)",
+        f"{fp:,}",
+        help="Genuine emails wrongly flagged as spam.",
+    )
+    c.metric(
+        "False negatives (spam → genuine)",
+        f"{fn:,}",
+        help="Spam emails the model missed.",
+    )
+
+    only_wrong = st.toggle("Show only misclassified rows")
+    st.dataframe(out[~out.correct] if only_wrong else out, width="stretch")
+    st.download_button(
+        f"Download {choice} predictions (CSV)",
+        out.to_csv(index_label="row").encode(),
+        file_name=f"predictions_{choice.lower().replace(' ', '_')}.csv",
+        mime="text/csv",
+        icon=":material/download:",
+    )
