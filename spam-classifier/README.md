@@ -7,7 +7,7 @@
 > **Registered for:** FIRST SEMESTER 2026–2027
 
 🚀 **Live app:** `<ADD STREAMLIT LINK>`  
-📂 **GitHub repo:** `<ADD LINK>`
+📂 **GitHub repo:** [Spam Classifier](https://github.com/01anasabu/bits-projects/tree/main/spam-classifier)
 
 ---
 
@@ -32,7 +32,7 @@ Classify an email as **spam (1)** or **not spam (0)** from word, character and c
 
 ## c. GitHub repository
 
-`<ADD LINK>`
+[View the Spam Classifier on GitHub](https://github.com/01anasabu/bits-projects/tree/main/spam-classifier)
 
 ```
 app.py                       Streamlit app: loads saved models, no retraining
