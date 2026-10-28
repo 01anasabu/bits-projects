@@ -66,7 +66,7 @@ with st.sidebar:
     st.markdown("**Download sample files**")
     for label, fname in [
         ("Test data (921 rows)", "test_data.csv"),
-        ("Small sample (300 rows)", "test_data01.csv"),
+        ("Small sample (300 rows)", "test_data_sample_300.csv"),
     ]:
         st.download_button(
             label,
