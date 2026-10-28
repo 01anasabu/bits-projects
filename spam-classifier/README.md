@@ -65,7 +65,7 @@ python training/train_evaluate.py       # retrain; overwrites model/ and the tes
 | ML Model Name | Accuracy | AUC | Precision | Recall | F1 | MCC |
 |---|---|---|---|---|---|---|
 | Logistic Regression | 0.9164 | 0.9630 | 0.9062 | 0.8788 | 0.8923 | 0.8243 |
-| Decision Tree | 0.9294 | 0.9389 | 0.9185 | 0.9008 | 0.9096 | 0.8518 |
+| Decision Tree | 0.9229 | 0.9256 | 0.9033 | 0.9008 | 0.9021 | 0.8385 |
 | KNN | 0.9207 | 0.9647 | **0.9315** | 0.8623 | 0.8956 | 0.8335 |
 | Naive Bayes | 0.8675 | 0.9226 | 0.8493 | 0.8072 | 0.8277 | 0.7208 |
 | Support Vector Machine | **0.9349** | **0.9753** | 0.9292 | **0.9036** | **0.9162** | **0.8632** |
@@ -76,21 +76,21 @@ python training/train_evaluate.py       # retrain; overwrites model/ and the tes
 
 | ML Model Name | Best hyperparameters | CV MCC |
 |---|---|---|
-| Logistic Regression | `C=10`, `penalty=l2`, `solver=liblinear` | 0.8512 |
-| Decision Tree | `criterion=entropy`, `max_depth=12`, `min_samples_leaf=1`, `min_samples_split=5` | 0.8309 |
+| Logistic Regression | `C=10`, `l1_ratio=0`, `solver=liblinear` | 0.8512 |
+| Decision Tree | `criterion=entropy`, `max_depth=12`, `min_samples_leaf=1`, `min_samples_split=2` | 0.8320 |
 | KNN | `n_neighbors=9`, `weights=distance`, `p=1` (Manhattan) | 0.8391 |
 | Naive Bayes | `var_smoothing=1e-6` | 0.7305 |
-| Support Vector Machine | `kernel=rbf`, `C=100`, `gamma=0.003` | 0.8712 |
+| Support Vector Machine | `kernel=rbf`, `C=100`, `gamma=0.003` | 0.8723 |
 
 ### Observations
 
 | ML Model Name | Observation about model performance |
 |---|---|
 | Logistic Regression | Strong, fast linear baseline (AUC 0.963), but its MCC of 0.824 trails SVM's 0.863, so the classes are not perfectly linearly separable. |
-| Decision Tree | Accuracy and recall are close to SVM, but AUC is the lowest of the top four (0.939) because splits give coarse probabilities. Its CV MCC (0.831) is below LR and KNN, so part of the test score is luck. |
+| Decision Tree | Recall (0.901) is close to SVM, but its AUC (0.926) is the lowest among the four stronger models, reflecting less effective probability ranking. Its test MCC (0.839) is close to its CV MCC (0.832). |
 | KNN | Highest precision (0.932) but the lowest recall of the top four (0.862): it rarely flags genuine mail and misses more spam. Distance-based, so features are standardised first. |
 | Naive Bayes | Weakest on every metric (MCC 0.721). Word frequencies are correlated, which breaks its independence assumption. |
-| Support Vector Machine | Best on accuracy, AUC, recall, F1 and MCC, and best in cross-validation (MCC 0.871). |
+| Support Vector Machine | Best on accuracy, AUC, recall, F1 and MCC, and best in cross-validation (MCC 0.872). |
 | **Overall winner** | **SVM**: highest MCC (0.863) and AUC (0.975). |
 
 ---
