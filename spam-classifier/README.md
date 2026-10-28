@@ -68,7 +68,7 @@ python training/train_evaluate.py       # retrain; overwrites model/ and the tes
 | Decision Tree | 0.9229 | 0.9256 | 0.9033 | 0.9008 | 0.9021 | 0.8385 |
 | KNN | 0.9207 | 0.9647 | **0.9315** | 0.8623 | 0.8956 | 0.8335 |
 | Naive Bayes | 0.8675 | 0.9226 | 0.8493 | 0.8072 | 0.8277 | 0.7208 |
-| Support Vector Machine | **0.9349** | **0.9753** | 0.9292 | **0.9036** | **0.9162** | **0.8632** |
+| Support Vector Machine | **0.9349** | **0.9754** | 0.9292 | **0.9036** | **0.9162** | **0.8632** |
 
 ### Hyperparameter tuning
 
