@@ -48,13 +48,36 @@ training/
 **Run locally**
 
 ```bash
-uv venv                                 # venv
-.venv\Scripts\activate                  # activate 
-uv pip install -r requirements.txt
-streamlit run app.py                    # app
-uv pip install ucimlrepo                # only needed to retrain
-python training/train_evaluate.py       # retrain; overwrites model/ and the test CSVs
+uv venv
 ```
+
+Activate the virtual environment:
+
+```powershell
+# Windows (PowerShell)
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS / Linux
+source .venv/bin/activate
+```
+
+Then install dependencies and start the app:
+
+```bash
+uv pip install -r requirements.txt
+streamlit run app.py
+```
+
+To retrain the models:
+
+```bash
+uv pip install ucimlrepo
+python training/train_evaluate.py
+```
+
+Retraining overwrites `model/` and the test CSV files.
 
 ---
 
