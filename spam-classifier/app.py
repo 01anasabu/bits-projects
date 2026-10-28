@@ -1,11 +1,16 @@
 from pathlib import Path
 
+import altair as alt
 import joblib
 import pandas as pd
 import streamlit as st
+from sklearn.metrics import confusion_matrix
+
+from training.metrics import evaluate
 
 ROOT = Path(__file__).parent  # folder with app.py and model/
 TARGET = "spam"  # label column in the uploaded CSV
+LABELS = ["Not spam", "Spam"]  # class names for 0 and 1
 # model name -> saved file in model/
 MODEL_FILES = {
     "Logistic Regression": "logistic_regression.joblib",
@@ -14,16 +19,107 @@ MODEL_FILES = {
     "Naive Bayes": "naive_bayes.joblib",
     "SVM": "svm.joblib",
 }
+CHART_H = 340  # chart height in px
+# hover text for the metric cards
+METRIC_HELP = {
+    "Accuracy": "Share of all emails classified correctly.",
+    "AUC": "How well spam is ranked above genuine mail. 1 = perfect, 0.5 = random.",
+    "Precision": "Of the emails flagged as spam, the share that really were.",
+    "Recall": "Of all the real spam, the share that was caught.",
+    "F1": "Balance of precision and recall.",
+    "MCC": "Overall quality from -1 to 1. 0 = random, 1 = perfect.",
+}
 
 st.set_page_config(
     page_title="Spam Email Classifier", page_icon=":material/mail:", layout="wide"
 )
+
+# hover text for the chart headings
+CHART_HELP = {
+    "confusion": "Real label (rows) vs the model's guess (columns). The diagonal cells are correct.",
+    "roc": "Spam caught (up) vs genuine emails wrongly flagged (right). Closer to the top-left is better; the dashed line is random.",
+    "table": "All metrics per model. Green marks the best in each column; higher is better.",
+    "bars": "Models side by side on all six metrics. Taller is better.",
+    "roc_all": "ROC curves of the selected models. Closer to the top-left is better. Click the legend to highlight one.",
+    "report": "Precision, recall and F1 for each class. Support is the number of real emails of that class.",
+    "observations": "The metrics on which each selected model scores highest, and the overall winner.",
+    "pr": "Precision (up) vs recall (right) as the strictness changes. Closer to the top-right is better; the dashed line is random guessing. AP is the area under the curve.",
+}
 
 
 @st.cache_resource
 def load(name):
     # cached: each model file is read once per session
     return joblib.load(ROOT / "model" / MODEL_FILES[name])
+
+
+@st.cache_data(show_spinner="Scoring all models on your data...")
+def score_all(data, features):
+    """Predictions from the saved models only; nothing is retrained."""
+    out = {}  # model name -> (predicted class, P(spam))
+    for name in MODEL_FILES:
+        model = load(name)
+        out[name] = (
+            model.predict(data[features]),
+            model.predict_proba(data[features])[:, 1],
+        )
+    return out
+
+
+def confusion_chart(y_true, y_pred):
+    cm = confusion_matrix(y_true, y_pred)
+    # one table row per cell; quad names the cells for the tooltip
+    quad = [["TN", "FP"], ["FN", "TP"]]
+    rows = [
+        {
+            "Actual": LABELS[i],
+            "Predicted": LABELS[j],
+            "Count": int(cm[i, j]),
+            "Share of actual": cm[i, j] / cm[i].sum(),
+            "Cell": quad[i][j],
+        }
+        for i in range(2)
+        for j in range(2)
+    ]
+    base = alt.Chart(pd.DataFrame(rows)).encode(
+        x=alt.X("Predicted:N", sort=LABELS, axis=alt.Axis(labelAngle=0)),
+        y=alt.Y("Actual:N", sort=LABELS),
+    )
+    # darker cell = more emails
+    heat = base.mark_rect(cornerRadius=6).encode(
+        color=alt.Color("Count:Q", scale=alt.Scale(scheme="oranges"), legend=None),
+        tooltip=[
+            "Cell:N",
+            "Actual:N",
+            "Predicted:N",
+            "Count:Q",
+            alt.Tooltip("Share of actual:Q", format=".1%"),
+        ],
+    )
+    # count printed in each cell; white text on dark cells
+    text = base.mark_text(fontSize=22, fontWeight="bold").encode(
+        text="Count:Q",
+        color=alt.when(alt.datum.Count > cm.max() / 2)
+        .then(alt.value("white"))
+        .otherwise(alt.value("#0f172a")),
+    )
+    return (heat + text).properties(height=CHART_H)
+
+
+def model_picker(key):
+    """Model dropdown shown inside the tab it controls (SVM selected by default)."""
+    models = list(MODEL_FILES)
+    # boxed so it stands out from the metrics below
+    with st.container(border=True):
+        label, box = st.columns([1, 2], vertical_alignment="center")
+        label.markdown("#### :material/tune: Choose a model")
+        return box.selectbox(
+            "Choose a model",
+            models,
+            index=models.index("SVM"),
+            key=key,
+            label_visibility="collapsed",
+        )
 
 
 # ---------- header + sidebar ----------
@@ -166,6 +262,7 @@ if df[TARGET].nunique() < 2:
     st.stop()
 
 y = df[TARGET]
+scores = score_all(df, features)  # score every model once
 
 # ---------- dataset summary ----------
 cards = [
@@ -179,3 +276,26 @@ for col, (label, value) in zip(st.columns(4), cards):
         st.metric(label, value)
 with st.expander(":material/table_view: Preview uploaded data"):
     st.dataframe(df.head(20), width="stretch")
+
+# three views: one model, all models, row-level predictions
+tab_res, tab_cmp, tab_pred = st.tabs(
+    [
+        ":material/query_stats: Model results",
+        ":material/compare_arrows: Compare models",
+        ":material/manage_search: Predictions",
+    ]
+)
+
+# ---------- tab 1: single model ----------
+with tab_res:
+    choice = model_picker("model_results")
+    pred, score = scores[choice]
+    m = evaluate(y, pred, score)
+    st.subheader(choice)
+    for col, (k, v) in zip(st.columns(len(m)), m.items()):
+        col.metric(k, f"{v:.4f}", help=METRIC_HELP[k])
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Confusion matrix**", help=CHART_HELP["confusion"])
+        st.altair_chart(confusion_chart(y, pred), width="stretch")
