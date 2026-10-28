@@ -2,9 +2,16 @@ from pathlib import Path
 
 import altair as alt
 import joblib
+import numpy as np
 import pandas as pd
 import streamlit as st
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import (
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_curve,
+)
 
 from training.metrics import evaluate
 
@@ -18,6 +25,14 @@ MODEL_FILES = {
     "KNN": "knn.joblib",
     "Naive Bayes": "naive_bayes.joblib",
     "SVM": "svm.joblib",
+}
+# one fixed colour per model, reused in every chart
+MODEL_COLORS = {
+    "Logistic Regression": "#3B82F6",
+    "Decision Tree": "#10B981",
+    "KNN": "#F59E0B",
+    "Naive Bayes": "#EF4444",
+    "SVM": "#8B5CF6",
 }
 CHART_H = 340  # chart height in px
 # hover text for the metric cards
@@ -47,6 +62,11 @@ CHART_HELP = {
 }
 
 
+def color_scale(mapping):
+    # Altair colour scale: each name gets its fixed colour
+    return alt.Scale(domain=list(mapping), range=list(mapping.values()))
+
+
 @st.cache_resource
 def load(name):
     # cached: each model file is read once per session
@@ -64,6 +84,96 @@ def score_all(data, features):
             model.predict_proba(data[features])[:, 1],
         )
     return out
+
+
+def roc_frame(name, y_true, score):
+    # one row per point on the ROC curve
+    fpr, tpr, thr = roc_curve(y_true, score)
+    return pd.DataFrame(
+        {
+            "Model": name,
+            "FPR": fpr,
+            "TPR": tpr,
+            "Threshold": np.clip(thr, 0, 1),  # first threshold is inf
+        }
+    )
+
+
+def roc_chart(frame, selector=None):
+    """ROC line(s) with invisible hover points carrying the tooltip."""
+    base = alt.Chart(frame).encode(
+        x=alt.X("FPR:Q", title="False positive rate", scale=alt.Scale(domain=[0, 1])),
+        y=alt.Y("TPR:Q", title="True positive rate", scale=alt.Scale(domain=[0, 1])),
+        color=alt.Color(
+            "Model:N",
+            scale=color_scale(MODEL_COLORS),
+            # legend only when comparing several models (the selector drives its click-to-highlight)
+            legend=alt.Legend(title=None, orient="bottom", columns=3)
+            if selector
+            else None,
+        ),
+        tooltip=[
+            "Model:N",
+            alt.Tooltip("FPR:Q", format=".3f"),
+            alt.Tooltip("TPR:Q", format=".3f"),
+            alt.Tooltip("Threshold:Q", format=".3f"),
+        ],
+    )
+    # fade unselected models when a legend entry is clicked
+    opacity = (
+        alt.when(selector).then(alt.value(1)).otherwise(alt.value(0.15))
+        if selector
+        else alt.value(1)
+    )
+    line = base.mark_line(strokeWidth=2.5).encode(opacity=opacity)
+    hover = base.mark_circle(size=70, opacity=0.01)
+    # dashed diagonal = random guessing
+    diagonal = (
+        alt.Chart(pd.DataFrame({"x": [0, 1], "y": [0, 1]}))
+        .mark_line(strokeDash=[5, 5], color="gray")
+        .encode(x="x:Q", y="y:Q")
+    )
+    chart = alt.layer(diagonal, line, hover).properties(height=CHART_H)
+    return chart.add_params(selector) if selector else chart
+
+
+def pr_frame(name, y_true, score):
+    # one row per point on the precision-recall curve
+    precision, recall, thr = precision_recall_curve(y_true, score)
+    return pd.DataFrame(
+        {
+            "Model": name,
+            "Recall": recall,
+            "Precision": precision,
+            "Threshold": np.append(thr, 1.0),  # last point has no threshold
+            "Step": np.arange(
+                len(recall)
+            ),  # curve order, so the line is not re-sorted by x
+        }
+    )
+
+
+def pr_chart(frame, baseline):
+    """PR line with invisible hover points carrying the tooltip."""
+    color = MODEL_COLORS[frame["Model"].iloc[0]]
+    base = alt.Chart(frame).encode(
+        x=alt.X("Recall:Q", title="Recall", scale=alt.Scale(domain=[0, 1])),
+        y=alt.Y("Precision:Q", title="Precision", scale=alt.Scale(domain=[0, 1])),
+        tooltip=[
+            alt.Tooltip("Recall:Q", format=".3f"),
+            alt.Tooltip("Precision:Q", format=".3f"),
+            alt.Tooltip("Threshold:Q", format=".3f"),
+        ],
+    )
+    line = base.mark_line(strokeWidth=2.5, color=color).encode(order="Step:Q")
+    hover = base.mark_circle(size=70, opacity=0.01, color=color)
+    # dashed line = precision of random guessing (the share of spam)
+    chance = (
+        alt.Chart(pd.DataFrame({"y": [baseline]}))
+        .mark_rule(strokeDash=[5, 5], color="gray")
+        .encode(y=alt.Y("y:Q", title="Precision"))
+    )
+    return alt.layer(chance, line, hover).properties(height=CHART_H)
 
 
 def confusion_chart(y_true, y_pred):
@@ -299,3 +409,18 @@ with tab_res:
     with left:
         st.markdown("**Confusion matrix**", help=CHART_HELP["confusion"])
         st.altair_chart(confusion_chart(y, pred), width="stretch")
+    with right:
+        st.markdown(f"**ROC curve** · AUC = {m['AUC']:.3f}", help=CHART_HELP["roc"])
+        st.altair_chart(roc_chart(roc_frame(choice, y, score)), width="stretch")
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Classification report**", help=CHART_HELP["report"])
+        rep = classification_report(y, pred, target_names=LABELS, output_dict=True)
+        st.dataframe(pd.DataFrame(rep).T.round(4), width="stretch")
+    with right:
+        ap = average_precision_score(y, score)
+        st.markdown(
+            f"**Precision-Recall curve** · AP = {ap:.3f}", help=CHART_HELP["pr"]
+        )
+        st.altair_chart(pr_chart(pr_frame(choice, y, score), y.mean()), width="stretch")
