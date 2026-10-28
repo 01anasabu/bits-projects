@@ -6,7 +6,7 @@
 > **Programme Enrolled:** M.Tech. Artificial Intelligence & Machine Learning  
 > **Registered for:** FIRST SEMESTER 2026–2027
 
-🚀 **Live app:** [Spam Email Classifier](https://mlspamclassifier.streamlit.app/)  
+🚀 **Streamlit Live app:** [Spam Email Classifier](https://mlspamclassifier.streamlit.app/)  
 📂 **GitHub repo:** [Spam Classifier](https://github.com/01anasabu/bits-projects/tree/main/spam-classifier)
 
 ---
