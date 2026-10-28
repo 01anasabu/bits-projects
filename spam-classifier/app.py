@@ -35,6 +35,27 @@ MODEL_COLORS = {
     "SVM": "#8B5CF6",
 }
 CHART_H = 340  # chart height in px
+# general guide (not data-dependent): which metric matters most for spam detection
+METRIC_PRIORITY = [
+    (
+        "1",
+        "Precision",
+        "Flags only real spam. A false alarm loses a genuine email, usually the worst mistake.",
+    ),
+    (
+        "2",
+        "Recall",
+        "Catches the spam. A miss lands in the inbox: annoying, sometimes risky (phishing).",
+    ),
+    ("3", "F1", "Balances precision and recall in one score."),
+    ("4", "MCC", "A reliable single score when the classes are uneven."),
+    ("5", "AUC", "How well spam is ranked above genuine mail at any cutoff."),
+    (
+        "6",
+        "Accuracy",
+        "Least informative: a filter that never flags anything can still look accurate.",
+    ),
+]
 # hover text for the metric cards
 METRIC_HELP = {
     "Accuracy": "Share of all emails classified correctly.",
@@ -216,6 +237,44 @@ def confusion_chart(y_true, y_pred):
     return (heat + text).properties(height=CHART_H)
 
 
+def metrics_chart(table):
+    # long format: one row per model and metric
+    long = table.reset_index(names="Model").melt(
+        "Model", var_name="Metric", value_name="Score"
+    )
+    # axis floor: lowest score rounded down to 0.1, so differences stay visible
+    lo = max(0.0, np.floor(float(table.values.min()) * 10) / 10)  # round down to 0.1
+    return (
+        alt.Chart(long)
+        .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
+        .encode(
+            x=alt.X(
+                "Metric:N",
+                sort=list(table.columns),
+                axis=alt.Axis(labelAngle=0),
+                title=None,
+            ),
+            xOffset="Model:N",
+            y=alt.Y(
+                "Score:Q",
+                scale=alt.Scale(domain=[lo, 1], nice=False),
+                axis=alt.Axis(
+                    format=".1f", values=[round(v, 1) for v in np.arange(lo, 1.01, 0.1)]
+                ),
+                title=f"Score (axis starts at {lo:.1f})" if lo else "Score",
+            ),
+            y2=alt.datum(lo),  # draw each bar from the axis floor, so nothing overflows
+            color=alt.Color(
+                "Model:N",
+                scale=color_scale(MODEL_COLORS),
+                legend=alt.Legend(title=None, orient="bottom", columns=3),
+            ),
+            tooltip=["Model:N", "Metric:N", alt.Tooltip("Score:Q", format=".4f")],
+        )
+        .properties(height=CHART_H)
+    )
+
+
 def model_picker(key):
     """Model dropdown shown inside the tab it controls (SVM selected by default)."""
     models = list(MODEL_FILES)
@@ -230,6 +289,29 @@ def model_picker(key):
             key=key,
             label_visibility="collapsed",
         )
+
+
+def highest(name, table):
+    """Metrics on which this model has the best score among the models in `table` (ties count)."""
+    return [k for k in table.columns if table.loc[name, k] == table[k].max()]
+
+
+def observe(name, table):
+    top = highest(name, table)
+    return (
+        f"Highest on {', '.join(top)}."
+        if top
+        else "Not highest on any selected metric."
+    )
+
+
+def winner_text(table):
+    """Overall winner: the model that is highest on the most metrics."""
+    leads = table.eq(table.max()).sum(axis=1)
+    top = leads[leads == leads.max()].index.tolist()
+    if len(top) > 1:
+        return f"Tie between {' and '.join(top)} (highest on {leads.max()} of {len(table.columns)} metrics each)"
+    return f"{top[0]} (highest on {', '.join(highest(top[0], table))})"
 
 
 # ---------- header + sidebar ----------
@@ -373,6 +455,8 @@ if df[TARGET].nunique() < 2:
 
 y = df[TARGET]
 scores = score_all(df, features)  # score every model once
+# all five models x six metrics, used for rankings and observations
+full = pd.DataFrame({n: evaluate(y, *scores[n]) for n in MODEL_FILES}).T
 
 # ---------- dataset summary ----------
 cards = [
@@ -424,3 +508,56 @@ with tab_res:
             f"**Precision-Recall curve** · AP = {ap:.3f}", help=CHART_HELP["pr"]
         )
         st.altair_chart(pr_chart(pr_frame(choice, y, score), y.mean()), width="stretch")
+
+# ---------- tab 2: compare all ----------
+with tab_cmp:
+    # both pickers default to everything (full comparison), stacked at full width
+    picked = st.multiselect(
+        "Models to compare", list(MODEL_FILES), default=list(MODEL_FILES)
+    )
+    metrics = st.multiselect(
+        "Metrics to compare", list(full.columns), default=list(full.columns)
+    )
+    if not picked or not metrics:
+        st.info("Select at least one model and one metric to compare.")
+    else:
+        # rows = selected models, columns = selected metrics
+        table = full.loc[picked, metrics]
+        winner = winner_text(table)
+        st.success(
+            f"🏆 Overall winner for your dataset: **{winner}**"
+            + (
+                " · you decide, see the priority guide below"
+                if winner.startswith("Tie")
+                else ""
+            )
+        )
+        st.markdown("**Metrics table**", help=CHART_HELP["table"])
+        st.dataframe(
+            table.style.format("{:.4f}").highlight_max(axis=0, color="#c6efce"),
+            width="stretch",
+        )
+
+        left, right = st.columns(2)
+        with left:
+            st.markdown("**Metrics by model**", help=CHART_HELP["bars"])
+            st.altair_chart(metrics_chart(table), width="stretch")
+        with right:
+            st.markdown("**ROC curves**", help=CHART_HELP["roc_all"])
+            frame = pd.concat([roc_frame(n, y, scores[n][1]) for n in picked])
+            # clicking a legend entry highlights that model
+            pick = alt.selection_point(fields=["Model"], bind="legend")
+            st.altair_chart(roc_chart(frame, pick), width="stretch")
+
+        st.markdown("**Performance observations**", help=CHART_HELP["observations"])
+        rows = {n: observe(n, table) for n in picked}
+        rows["Overall winner for your dataset"] = winner_text(table)
+        st.table(pd.Series(rows, name="Observation").rename_axis("Model"))
+
+    st.markdown("**Which metric matters most for spam detection?**")
+    st.table(
+        pd.DataFrame(
+            METRIC_PRIORITY, columns=["Priority", "Metric", "Why it matters"]
+        ).set_index("Priority")
+    )
+    st.caption("A general guide for spam filtering, not specific to your data.")
