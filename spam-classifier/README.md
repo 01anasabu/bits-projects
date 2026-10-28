@@ -35,11 +35,14 @@ Classify an email as **spam (1)** or **not spam (0)** from word, character and c
 `<ADD LINK>`
 
 ```
+app.py                       Streamlit app: loads saved models, no retraining
 requirements.txt
+test_data.csv                held-out test split (921 rows: 57 features + spam)
+test_data_sample_300.csv     300-row sample of test_data.csv for quick demos
 model/                 5 saved models (.joblib) + metrics.json + best_params.json
 training/
   train_evaluate.py    load data, split, tune (grid search), train, evaluate, save
-  metrics.py           the six metrics (shared by training)
+  metrics.py           the six metrics (shared by training and app)
 ```
 
 **Run locally**
@@ -48,8 +51,46 @@ training/
 uv venv                                 # venv
 .venv\Scripts\activate                  # activate 
 uv pip install -r requirements.txt
-uv pip install ucimlrepo                   # only needed to retrain
-python training/train_evaluate.py       # retrain; overwrites model
+streamlit run app.py                    # app
+uv pip install ucimlrepo                # only needed to retrain
+python training/train_evaluate.py       # retrain; overwrites model/ and the test CSVs
 ```
+
+---
+
+## d. Models used
+
+### Evaluation metrics (921-row test split)
+
+| ML Model Name | Accuracy | AUC | Precision | Recall | F1 | MCC |
+|---|---|---|---|---|---|---|
+| Logistic Regression | 0.9164 | 0.9630 | 0.9062 | 0.8788 | 0.8923 | 0.8243 |
+| Decision Tree | 0.9294 | 0.9389 | 0.9185 | 0.9008 | 0.9096 | 0.8518 |
+| KNN | 0.9207 | 0.9647 | **0.9315** | 0.8623 | 0.8956 | 0.8335 |
+| Naive Bayes | 0.8675 | 0.9226 | 0.8493 | 0.8072 | 0.8277 | 0.7208 |
+| Support Vector Machine | **0.9349** | **0.9753** | 0.9292 | **0.9036** | **0.9162** | **0.8632** |
+
+### Hyperparameter tuning
+
+5-fold stratified `GridSearchCV` on the training split, scoring = MCC. CV MCC is the mean score across the 5 folds.
+
+| ML Model Name | Best hyperparameters | CV MCC |
+|---|---|---|
+| Logistic Regression | `C=10`, `penalty=l2`, `solver=liblinear` | 0.8512 |
+| Decision Tree | `criterion=entropy`, `max_depth=12`, `min_samples_leaf=1`, `min_samples_split=5` | 0.8309 |
+| KNN | `n_neighbors=9`, `weights=distance`, `p=1` (Manhattan) | 0.8391 |
+| Naive Bayes | `var_smoothing=1e-6` | 0.7305 |
+| Support Vector Machine | `kernel=rbf`, `C=100`, `gamma=0.003` | 0.8712 |
+
+### Observations
+
+| ML Model Name | Observation about model performance |
+|---|---|
+| Logistic Regression | Strong, fast linear baseline (AUC 0.963), but its MCC of 0.824 trails SVM's 0.863, so the classes are not perfectly linearly separable. |
+| Decision Tree | Accuracy and recall are close to SVM, but AUC is the lowest of the top four (0.939) because splits give coarse probabilities. Its CV MCC (0.831) is below LR and KNN, so part of the test score is luck. |
+| KNN | Highest precision (0.932) but the lowest recall of the top four (0.862): it rarely flags genuine mail and misses more spam. Distance-based, so features are standardised first. |
+| Naive Bayes | Weakest on every metric (MCC 0.721). Word frequencies are correlated, which breaks its independence assumption. |
+| Support Vector Machine | Best on accuracy, AUC, recall, F1 and MCC, and best in cross-validation (MCC 0.871). |
+| **Overall winner** | **SVM**: highest MCC (0.863) and AUC (0.975). |
 
 ---
